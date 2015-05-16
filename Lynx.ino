@@ -1,6 +1,15 @@
 /*
- * Arduino LEDs Control
- * 
+ * This is the Arduino program for the Lynx device
+ *
+ * Note: This program is only compatible with the Teensy 3.1 microcontroller, due to the needed amount of analog pins
+ * This program handles interpreting data from the attached Android device, sending it as binary data to the SUR40 using 
+ * IR LEDs, and reading binary data from the SUR40 using phototransistors.
+ *
+ * We are currently using RGB values to read in light.  This program includes functions to read in light based on the 
+ * normal values of the phototransistors.
+ *
+ * Due to time constraints, some code that is currently left in the program is not being used
+ *
  */
 #include <Matrix.h>
 #include <Sprite.h>
@@ -32,9 +41,16 @@ char binaryValue;
 String binaryString = "";
 unsigned char binaryResult;
 String commandString = "";
+
+//Sets the pins you want to use for the phototransistors. These need to be set in the order you want to read the pins in
 int pinNumbers[] = {A8,A5,A3,A17,A9,A6,A4,A14,22,23,26,27,28,29,30,31,32};
+//Sets the bias for each pin you are using. The bias is whatever you want to use to distingush between the analog value of 
+//black and the analog value of white
 int pinReadBias[] = {620,680,710,770,895,1015,915,880,680,725,725,725,725,725,725,725};
+//How many bits you are currently trying to read
 int bitsUsed = 8;
+
+//used with RGB
 int pinArr1[] = {A8,A5,A3,A17,A9,A6,A4,A14};
 int arr1[] = {0,0,0,0,0,0,0,0};
 int flipBit = 0;
@@ -44,12 +60,12 @@ boolean flip = true;
 
 void setup() {
   myLeds.clear();
-  myLeds.setBrightness(15);
+  myLeds.setBrightness(15); //Sets LED brightness
   Serial.begin(9600);        // connect to the serial port
 }
 
 void loop () {
-  while(Serial.available()){
+  while(Serial.available()){ //If tablet is sending data
     input=Serial.read();
     str.concat(input);
     
@@ -67,30 +83,27 @@ int str_len = str.length() + 1;
 char char_array[str_len];
 
 // Copy it over 
-
 str.toCharArray(char_array, str_len);
-//myLeds.write(0,6,HIGH);
 for(int i=0; i<str_len-1; i++){
   for(int w=7;w>=0;w--){
-  byte bytes = bitRead(char_array[i],w);
+  byte bytes = bitRead(char_array[i],w); //Converts characters to binary
   binStr=binStr + bytes;
   
   }
-  binLight(binStr);
-  binStr="";
+  binLight(binStr); //Lights up binary
+  binStr=""; //clears string
   delay(50);
-  myLeds.clear();
+  myLeds.clear(); //Turns off LED
   delay(50);
 }
 
 
-str="";
+str=""; //Clears srting
 }
     for(int w=0;w<8;w++){
-     arr1[w]= getRVal(analogRead(pinArr1[w]));
+     arr1[w]= getRVal(analogRead(pinArr1[w])); //Gets analog readings
     }
-     if(230<arr1[0]){
-      
+     if(230<arr1[0]){ //Checks if first bit is on
        for(int w=1;w<8;w++){
         Serial.print(arr1[w]); 
         Serial.print(",");
@@ -100,18 +113,19 @@ str="";
 }
   
     
- 
+//gets the RGB value for the phototransistor passed in
 int getRVal(int sensVal){
  for(int i = 0; i < 3; i++){
-  rgbds[i] = constrain(sensVal, minblack[i], maxwhite[i]);
-  rgbds[i] = map(rgbds[i], minblack[i], maxwhite[i], 0, 255);
+  rgbds[i] = constrain(sensVal, minblack[i], maxwhite[i]); //Constrains to RGB values
+  rgbds[i] = map(rgbds[i], minblack[i], maxwhite[i], 0, 255); //Maps all the value
   if(i==0){
-    return rgbds[i];
+    return rgbds[i]; //Returns the red value of RGB
   }
   }   
-  return 0;
+  return 0; //Return 0 if bad reading
 }
 
+//Converts the string of binary values into char values
 String debinaryStringify(String source) {
     String result = "";
     int idxStart = 0;
@@ -126,17 +140,16 @@ String debinaryStringify(String source) {
     return result;
 }
 
+//Turns off the corresponding IR LED based on whether that bit is 1 or 0
+//Note this function is currently not in use
 void binLightOff(String bin){
   int str_len = bin.length() + 1; 
 // Prepare the character array (the buffer) 
 char char_array[str_len];
 
 // Copy it over 
-
 bin.toCharArray(char_array, str_len);
-  /*if(char_array[0]=='1'){
-    myLeds.write(0,6,LOW);
-  }*/
+  //Turns LEDs off.
   if(char_array[1]=='1'){
     myLeds.write(7,6,LOW);
   }
@@ -162,17 +175,15 @@ bin.toCharArray(char_array, str_len);
   
 }
 
+//Turns on the corresponding IR LED based on whether that bit is 1 or 0
 void binLight(String bin){
   int str_len = bin.length() + 1; 
 // Prepare the character array (the buffer) 
 char char_array[str_len];
 
 // Copy it over 
-
 bin.toCharArray(char_array, str_len);
- /* if(char_array[0]=='1'){
-    myLeds.write(0,6,HIGH);
-  }*/
+  //Turns LEDs on
   if(char_array[1]=='1'){
     myLeds.write(7,6,HIGH);
   }
@@ -196,6 +207,8 @@ bin.toCharArray(char_array, str_len);
   }
 }
 
+//This function gets the analog value of the phototransistor, and converts it to a 1 or 0 based on the
+//corresponding bias set
 char getBit(int pinNumber, int readBounds) {
   
     d=analogRead(pinNumber);
@@ -206,12 +219,11 @@ char getBit(int pinNumber, int readBounds) {
     else
       binaryValue = '0';
       testPinBias(d, binaryValue);
-    //Serial.print(binaryValue);
-    //Serial.print("\n");
     return binaryValue;
   
 }
 
+//Displays the analog reading or each phototransistor connected
 void testPinBias (int d, int binaryValue) {
   //Serial.print(d);
   //Serial.print("   ");
